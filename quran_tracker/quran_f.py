@@ -9,22 +9,27 @@ import json
 def add_surah(name):
     content = pd.read_csv("quran_tracker/quran.csv")
 
-    new_ID = content["ID"].max()+1
-    row = {
-        "ID" : new_ID,
-        "Name" : name,
-        "Repetition" : 0,
-        "Memorization" : 0,
-        "date" :datetime.today().strftime("%d-%m-%Y") 
-        }
-        
-    content = pd.concat([content , pd.DataFrame([row])],ignore_index=True)
-    content.to_csv("quran_tracker/quran.csv", index=False)
+    if name not in content["Name"].values :
+        new_ID = content["ID"].max()+1
+        row = {
+            "ID" : new_ID,
+            "Name" : name,
+            "Repetition" : 0,
+            "Memorization" : 0,
+            "date" :datetime.today().strftime("%d-%m-%Y") 
+            }
+                
+        content = pd.concat([content , pd.DataFrame([row])],ignore_index=True)
+        content.to_csv("quran_tracker/quran.csv", index=False)
+        return True
+    else :
+        return False
 
 
 def rev_surah(name,repetition):
 
     checked , rep , memo , datee = check_existence(name)
+    old_progress = [rep , memo , datee]
 
     if  checked == True :
         last_date = datetime.today()
@@ -41,9 +46,12 @@ def rev_surah(name,repetition):
 
         # add your data results in the csv file 
         content.to_csv("quran_tracker/quran.csv", index=False)
-        print(f"Your progress is added to surah {name} !")
 
-        return f"surat {name} is found ! \nYour repetition = {total_repetition} \nMemorization = {total_percentage}% \nLast date = {datee.date()}"
+
+        return f"surat {name} is found ! \nYour repetition = {total_repetition} \nMemorization = {total_percentage}% \nLast date = {datee.date()}" , old_progress
+        
+        
+    
 
 
 def calculator (new_rep, old_rep , memo , old_date , new_date ):

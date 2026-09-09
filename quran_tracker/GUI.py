@@ -46,16 +46,24 @@ class sub_window(ctk.CTkToplevel):
  
         self.name = None  # will hold whatever the user has currently selected, updated live
         self.current_label = None
+        self.saved = False
 
         self.create_label("Select your surah here !" , color="white" ,padx=45 ,pady=45)
  
         self.option_menu(width=150 , height=50 , padx=40 , pady=40 , values=self.read_surahs(),function=self.user_selection)
         # function=self.sub_success (NO parentheses) — pass a reference, don't call it now
-        self.create_button(text="Enter", function=self.sub_success, padx=70, pady=50 , width=100 , height=50)
+        self.create_button(text="Enter", function=self.sub_success, padx=70, pady=50 , width=100 , height=50 , color=None)
+        self.create_button(text="Undo", function=self.undo_progress, padx=80 , pady=50 , width=100 , height=50 ,color="red")
  
-    def create_button(self, text, function, padx, pady , width , height):
-        b = ctk.CTkButton(self, text=text, command=function ,width=width , height=height)
-        b.pack(padx=padx, pady=pady)
+    def create_button(self, text, function, padx, pady , width , height , color):
+        if color:
+            b = ctk.CTkButton(self, text=text, command=function ,width=width , height=height , fg_color=color )
+            b.pack(padx=padx, pady=pady)
+        else :
+            b = ctk.CTkButton(self, text=text, command=function ,width=width , height=height )
+            b.pack(padx=padx, pady=pady)
+
+    
  
     def create_label(self, text, color, padx, pady):
         if self.current_label is not None :
@@ -84,15 +92,35 @@ class sub_window(ctk.CTkToplevel):
         self.name = selected_value
         print(f"selected value is ; {selected_value}")
  
-    def sub_success(self):
+    def sub_success(self ):
         # This only runs when Enter is actually clicked — the real "submit" moment. 
+
             if not self.name:
                 self.create_label("No surah is selected yet !" , color="red" , padx=100 , pady=100 )
             else:
                 print(f"is saved: {self.name}")
-                quran_f.add_surah(self.name)
-                self.create_label("Surah added Successfully !" , "green" , 100 , 100)
-            return
+                self.saved=quran_f.add_surah(self.name)
+                if self.saved :
+                    self.create_label("Surah added Successfully !" , "green" , 100 , 100)
+                else :
+                    self.create_label("Surah is already saved !" , "yellow" , 100 , 100)
+            
+
+    def undo_progress(self):
+        if self.saved :
+            content = pd.read_csv("quran_tracker\quran.csv")
+            content = content.iloc[:-1]
+            content.to_csv("quran_tracker/quran.csv", index=False)
+
+            self.create_label("Surah is deleted !", "yellow" , 100 , 100)
+        else :
+            self.create_label("Enter a surah first !", "red" , 100 , 100)
+
+            
+
+
+            
+    
         # TODO: call your normelizer / match_surah / add_surah logic here using self.name
  
 
@@ -105,6 +133,8 @@ class RevisionWindow(ctk.CTkToplevel):
         self.geometry("400x300")
 
         self.current_label = None
+        self.current_button = None
+        self.old_process = []
         self.option_menu(width=150 , height=50 , padx=40 , pady=40 , values=self.read_submitions())
 
         self.entry = ctk.CTkEntry(self, placeholder_text="Enter number of repetition :")
@@ -129,17 +159,29 @@ class RevisionWindow(ctk.CTkToplevel):
         return list(names)
     
     def on_submit(self):
-        surah_enterd = self.options.get()
+        self.surah_enterd = self.options.get()
         surah_repition = self.entry.get()
 
-        if surah_repition.isdigit() :
+        if surah_repition.isdigit() and not self.surah_enterd == "":
             if int(surah_repition) <= 100 :
-                text =quran_f.rev_surah(name= surah_enterd , repetition= surah_repition)
+                text , self.old_process =quran_f.rev_surah(name= self.surah_enterd , repetition= surah_repition)
                 sub_window.create_label(self , text , "green" ,20 ,20)
+                if not self.current_button :
+                    ctk.CTkButton(self, text="Undo" , command=self.undo_submit).pack(padx=30 , pady=20)
+                    self.current_button = True
             else :
                 sub_window.create_label(self ,"ERROR:number is too big !" ,"red" ,20 ,20 )
         else :
-            sub_window.create_label(self,"Enter a number ! " , "red" , 20 , 20)
+            sub_window.create_label(self,"Enter a surah and number ! " , "red" , 20 , 20)
+
+    def undo_submit(self) :
+        mask = self.content["Name"] == self.surah_enterd
+        self.content.loc[mask , ["Repetition" ,"Memorization" ,"date" ]] = int(self.old_process[0]) ,int(self.old_process[1]) ,self.old_process[2]
+       
+
+        self.content.to_csv("quran_tracker\quran.csv",index=False)
+
+        sub_window.create_label(self ,"Progress is removed !" ,"yellow" ,20 ,20)
 
 
 
