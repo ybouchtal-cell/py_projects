@@ -3,14 +3,28 @@ import rapidfuzz
 import re
 from datetime import datetime
 import json
+from pathlib import Path
+
+
+DATA_FILE = Path(__file__).resolve().parent / "data" / "quran.csv"
+CSV_COLUMNS = ["ID", "Name", "Repetition", "Memorization", "date"]
+
+
+def read_csv():
+    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    if not DATA_FILE.exists():
+        pd.DataFrame(columns=CSV_COLUMNS).to_csv(DATA_FILE, index=False)
+
+    return pd.read_csv(DATA_FILE)
 
 
 
 def add_surah(name):
-    content = pd.read_csv("quran_tracker/quran.csv")
+    content = read_csv()
 
     if name not in content["Name"].values :
-        new_ID = content["ID"].max()+1
+        new_ID = int(content["ID"].max()) + 1 if not content.empty else 0
         row = {
             "ID" : new_ID,
             "Name" : name,
@@ -20,7 +34,7 @@ def add_surah(name):
             }
                 
         content = pd.concat([content , pd.DataFrame([row])],ignore_index=True)
-        content.to_csv("quran_tracker/quran.csv", index=False)
+        content.to_csv(DATA_FILE, index=False)
         return True
     else :
         return False
@@ -37,7 +51,7 @@ def rev_surah(name,repetition):
             
         total_percentage , total_repetition = calculator(repetition , rep , memo , datee , last_date )
         
-        content = pd.read_csv("quran_tracker/quran.csv")
+        content = read_csv()
         mask = content["Name"] == name
 
         content.loc[mask , ["Repetition"]] = int(total_repetition)
@@ -45,15 +59,12 @@ def rev_surah(name,repetition):
         content.loc[mask , ["date"]] = ((last_date.date()).strftime('%d-%m-%Y'))
 
         # add your data results in the csv file 
-        content.to_csv("quran_tracker/quran.csv", index=False)
+        content.to_csv(DATA_FILE, index=False)
 
 
         return f"surat {name} is found ! \nYour repetition = {total_repetition} \nMemorization = {total_percentage}% \nLast date = {datee.date()}" , old_progress
         
         
-    
-
-
 def calculator (new_rep, old_rep , memo , old_date , new_date ):
     
     rep_total = int(new_rep) + int(old_rep)
@@ -95,7 +106,7 @@ def match_surah(norm_surah):
 
     
 def  check_existence(surah):
-    content = pd.read_csv("quran_tracker/quran.csv")
+    content = read_csv()
 
     if surah == None :
         return False , False , False ,False
@@ -108,8 +119,8 @@ def  check_existence(surah):
             return False 
 
 def quests():
-    content = pd.read_csv("quran_tracker/quran.csv")
-    print(content)
+    content = read_csv()
+
     memo = list(content.get("Memorization"))
     surahs = list(content.get("Name")) 
     dates = list(content.get("date"))
@@ -125,14 +136,14 @@ def quests():
                 quest["percentage"].append(memo[surah])
                 quest["date"].append(dates[surah])
 
-    print(quest)
     
     if len(quest["name"]) != 0 :
-        print("these are the following list for today : \n ")
+        text =''
         for _ in range(len(quest["name"])) :
-            print(f"{quest["name"][_]} percentage: {quest["percentage"][_]}% since {quest["date"][_]}")
+            text = text + "\n" + f"{quest["name"][_]} percentage: {quest["percentage"][_]}% since {quest["date"][_]}"
+        return text , quest["name"]
     else :
-        print("no quest found for today !")
+        return "no quest found for today !"
     
 
 def verify_input(inpute):

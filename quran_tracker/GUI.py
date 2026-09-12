@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import json
 import quran_f
-import pandas as pd
+from Table import ShowTable
 
 
 class window(ctk.CTk):
@@ -15,7 +15,9 @@ class window(ctk.CTk):
 
         self.button("Add Surah", self.AddSurah, 25, 25)
         self.button("Revision", self.rev_surah_gui, 27, 27)
-        self.button("Daily Quests", quran_f.quests, 30, 30)
+        self.button("Daily Quests",self.Questes, 30, 30)
+        self.button("Progress",ShowTable,100,40)
+
 
         self.mainloop()  # must be last — nothing after this line runs until the window closes
 
@@ -32,6 +34,9 @@ class window(ctk.CTk):
 
     def rev_surah_gui(self):
         RevisionWindow(self)
+
+    def Questes(self):
+        QuestWindow(self)
 
 
 
@@ -73,7 +78,7 @@ class sub_window(ctk.CTkToplevel):
         self.current_label.pack(padx=padx , pady=pady)
             
     def read_surahs(self):
-        with open("quran_tracker/surahs.json", "r") as file:
+        with open("quran_tracker/data/surahs.json", "r") as file:
             surahs = json.load(file)
         return list(surahs.values())
  
@@ -108,22 +113,13 @@ class sub_window(ctk.CTkToplevel):
 
     def undo_progress(self):
         if self.saved :
-            content = pd.read_csv("quran_tracker\quran.csv")
+            content = quran_f.read_csv()
             content = content.iloc[:-1]
-            content.to_csv("quran_tracker/quran.csv", index=False)
+            content.to_csv("quran_tracker/data/quran.csv", index=False)
 
             self.create_label("Surah is deleted !", "yellow" , 100 , 100)
         else :
             self.create_label("Enter a surah first !", "red" , 100 , 100)
-
-            
-
-
-            
-    
-        # TODO: call your normelizer / match_surah / add_surah logic here using self.name
- 
-
 
 class RevisionWindow(ctk.CTkToplevel):
     def __init__(self, parent):
@@ -153,9 +149,8 @@ class RevisionWindow(ctk.CTkToplevel):
             self.options.pack(padx = padx , pady = pady)
     
     def read_submitions(self):
-        with open("quran_tracker\quran.csv","r") as file :
-            self.content = pd.read_csv(file)
-            names=(self.content.get("Name"))
+        self.content = quran_f.read_csv()
+        names = self.content.get("Name")
         return list(names)
     
     def on_submit(self):
@@ -179,9 +174,76 @@ class RevisionWindow(ctk.CTkToplevel):
         self.content.loc[mask , ["Repetition" ,"Memorization" ,"date" ]] = int(self.old_process[0]) ,int(self.old_process[1]) ,self.old_process[2]
        
 
-        self.content.to_csv("quran_tracker\quran.csv",index=False)
+        self.content.to_csv("quran_tracker/data/quran.csv",index=False)
 
         sub_window.create_label(self ,"Progress is removed !" ,"yellow" ,20 ,20)
+
+
+class QuestWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.title("Quests")
+        self.geometry("400x300")
+
+        self.current_label = None
+        self.current_button = None
+        self.old_process = []
+        self.show_quests()
+        self.option_menu( width=150 , height=50 , padx=40 , pady=40 , values=self.quest )
+        self.entry()
+        
+        ctk.CTkButton(self ,  text="Submit", command=self.quests_adjust).pack(padx=20, pady=10)
+
+    def show_quests(self):
+            text , self.quest = quran_f.quests()
+            sub_window.create_label(self , text , "white" ,20 ,20)
+    
+    def entry(self):
+        self.choice=ctk.CTkEntry(self, placeholder_text="Enter number of repetition :")
+        self.choice.pack(padx=20, pady=10)
+    
+    def option_menu(self , width , height , padx , pady ,values ):
+            self.options = ctk.CTkOptionMenu(
+                self,
+                values=values,
+                width=width, 
+                height=height 
+            )  
+            self.options.set("")
+            self.options.pack(padx = padx , pady = pady)
+    
+    def read_submitions(self):
+        self.content = quran_f.read_csv()
+        names = self.content.get("Name")
+        return list(names)
+    
+    def quests_adjust(self):
+            self.surah = self.options.get()
+            self.adjustement = self.choice.get()
+    
+            if self.adjustement.isdigit() and not self.surah == "":
+                text , self.old_progress = quran_f.rev_surah(self.surah , self.adjustement)
+                sub_window.create_label(self , text , "green" ,20 ,20)
+                if not self.current_button :
+                    ctk.CTkButton(self, text="Undo" , command=self.undo_submit).pack(padx=30 , pady=20)
+                    self.current_button = True
+            elif self.adjustement > 100:
+                    sub_window.create_label(self ,"ERROR:number is too big !" ,"red" ,20 ,20 )
+            else :
+                    sub_window.create_label(self,"Enter a surah and number ! " , "red" , 20 , 20)
+
+    def undo_submit(self) :
+        self.read_submitions()
+        mask = self.content["Name"] == self.surah
+        self.content.loc[mask , ["Repetition" ,"Memorization" ,"date" ]] = int(self.old_progress[0]) ,int(self.old_progress[1]) ,self.old_progress[2]
+       
+
+        self.content.to_csv("quran_tracker/data/quran.csv",index=False)
+
+        sub_window.create_label(self ,"Progress is removed !" ,"yellow" ,20 ,20)
+
+
 
 
 
